@@ -17,9 +17,41 @@ jupyter: python3
 
 Over the course of the past 2 weeks, my work primarily consisted of building an OLS Regression Model to track how egg prices impacted consumption, with a specific focus on consumer spending patterns. This project's main goal was to track how egg consumption (the predictor variable) acted in relation to the prices of eggs, while also finding which combination of external factors (the control variables) would provide the strongest statistical model. Below, I showcase a few of my most notable findings, and the models which I believe are most useful to VISA.
 
+## Logistics
+
+All data is public and was pulled from the US Census Bureau, and the Bureau of Economic Analysis (BEA). The data is monthly and begins in the years as early as 1929.\
+\
+Below is a key for what each coefficient in the data stands for:
+
+UFMEN: CPI-U: Eggs  (NSA, 1982-84=100)
+
+UFEC: CPI-U: Real Personal Egg Consumption Expenditures, Chained Dollars (SA)
+
+PCE: Personal consumption expenditures
+
+VSMINN: Visa Nondiscretionary Spending Momentum Index (NSA, \>100=Strengthening)
+
+VSMIDN: Visa Discretionary Spending Momentum Index (NSA, \>100=Strengthening)
+
+CCOND: University of Michigan: Current Economic Conditions (NSA, Q1-66=100)
+
+RECPROB: Probability of US Recession 12-Mo Ahead, as Predicted by the Treasury Spread (%)
+
+PXEA: Export Price Index: All Exports (NSA, 2000=100)
+
+PMEA: Import Price Index: All Imports (NSA, 2000=100)
+
+NRSI511N: Retail Sales: Supermarkets & Other Grocery \[ex Convenience Stores\](NSA, Mil.US\$)
+
+NRSV2N: Retail Sales: Food Services & Drinking Places (NSA, Mil.\$)
+
+Education: Real Personal Consumption Expenditures, Chained Dollars for Education
+
+FNBOPC: Food and beverages purchased for off-premises consumption
+
 ## Notable Regression Models
 
-The following regression model provided me with the highest R\^2 value of .989, or 98.9% of the variance in the data could be explained by the model, making it very statistically powerful. For control variables, I used Personal Consumption Expenditures, VISA Discretionary & Non-Discretionary spending momentum, Current Economic Conditions, Probability of Recession in the Next Year, the Export and Import Price Indexes, Retail Sales for Supermarkets and Other Grocery Stores, Expenditures on Education, and finally Food & Beverages Purchased for Off-Premises Consumption. Below are the results.
+The following regression model provided me with the highest R\^2 value of .989, or 98.9% of the variance in the data could be explained by the model, making it very statistically powerful. For control variables, I used PCE, VSMINN, VSMIDN, CCOND, RECPROB, PXEA, PMEA, NRSI511N, Education and FNBOPC.
 
 ```{python}
 #| echo: false
@@ -73,9 +105,15 @@ model5 = smf.ols(formula5, data=df_wide).fit()
 print(model5.summary())
 ```
 
-The following table tells us a lot about the relationship egg prices shares with many different factors in our model. First, the p-value of our predictor variable, consumer spending on eggs, is nearly 0. This signifies that there is extremely strong statistically significant evidence that consumer spending directly impacts the price of eggs, and since our coefficient for the following variable is negative, we can infer that as the price of eggs rises, consumption rates slightly drop.\
-\
-With respect to control variables, spending momentum and the export import index were the only variables which crossed the significance threshold of p \< 0.05. Education with a p-value of 0.061 was very close, however the p-value was a little too large to meet the statistically significant benchmark. From these results, we can infer that there is statistically significant evidence that spending momentum, alongside export and import index rates affect the price of eggs. In specific, non-discretionary spending rates are projected to fall as the prices of eggs increase, while discretionary spending rates are projected to increase as egg prices increase. Additionally the export index is projected to rise as egg prices increase while the import index is projected to fall as egg prices increase.
+### Important Findings
+
+-   The p-value of our predictor variable, consumer spending on eggs, is nearly 0; signifies that there is extremely strong statistically significant evidence that consumer spending directly impacts the price of eggs.
+
+-   Since our coefficient for the following variable is negative, we can infer that as the price of eggs rises, consumption rates slightly drop.\
+
+-   With respect to control variables, spending momentum and the export import index were the only variables which crossed the significance threshold of p \< 0.05. Education with a p-value of 0.061 was very close, however the p-value was a little too large to meet the statistically significant benchmark.
+
+-   We can infer that there is statistically significant evidence that spending momentum, alongside export and import index rates affect the price of eggs.
 
 ### Slight Problem: Multicollinearity & Overfitting
 
@@ -141,11 +179,13 @@ print(model4.summary())
 
 ### Brief Summary of Findings:
 
-First, we can see in the VIF table that none of the values fall above 3.6, signifying that all the following indices should not cause any issues of multicollinearity.
+-   None of the values in the VIF table fall above 3.6 \< 10, signifying that all the following indices should not cause any issues of multicollinearity.
 
-The high R\^2 value of .947 signifies that the model is strong, as 94.7% of the variance in the data can be explained by it. Just like the last model as well, we see the super low p-value of nearly 0 for the egg consumption variable, reinforcing the statistical significance and negative correlation which egg consumption has on its prices.
+-   The high R\^2 value of .947 signifies that the model is strong, as 94.7% of the variance in the data can be explained by it.
 
-Unfortunately, unlike the previous model, none of the control coefficients p-values fall under the significance threshold of p \< 0.05, so there is not enough statistically significant evidence to reject the null hypothesis for any of these factors. However, it is interesting to compare the two models and see which factors are more likely subtly influencing the prices of eggs and consumer spending patterns.
+-   Just like the last model, we see the super low p-value of nearly 0 for the egg consumption variable, reinforcing the statistical significance and negative correlation which egg consumption has on its prices.
+
+-   unlike the previous model, none of the control coefficients p-values fall under the significance threshold of p \< 0.05, so there is not enough statistically significant evidence to reject the null hypothesis for any of these factors.
 
 Finally, I included a residual plot below as a final test to confirm the model met all conditions safely. Since the residuals are randomly spread with no pattern, this confirms the model should be accurate without any issues of multicollinearity.
 
@@ -199,7 +239,11 @@ fig11 = m6.plot(forecast6)
 fig12 = m6.plot_components(forecast6)
 ```
 
-Egg prices have been on the steady rise, which can be best explained by inflation. Around the end of 2024 and the beginning of 2025, we see the huge price jump in eggs which was caused by the bird flu. However, this event, as extreme as it was, only slightly shifts the projected forecast of egg prices in the future. From this graph, we can estimate that egg prices will still steadily increase as a result of inflation, but will not be permanently damaged by the shortage.
+-   Egg prices have been on the steady rise prior to the 2025 shortage
+
+-   Around the end of 2024 and the beginning of 2025, we see the huge price jump in eggs which was caused by the bird flu. However, this event, as extreme as it was, only slightly shifts the projected forecast of egg prices in the future.
+
+-   From this graph, prophet estimates that egg prices will still steadily increase while returning to normal, signifying prices will not be permanently damaged by the shortage.
 
 ### Retail Sales for Supermarkets & Other Grocery Stores
 
@@ -229,7 +273,13 @@ fig3 = m2.plot(forecast2)
 fig4 = m2.plot_components(forecast2)
 ```
 
-Retail sales for Supermarkets & Other Grocery Stores compared to retail sales for Food Services shared many similarities. Both areas as seen in the forecasting graphs experience growth over time which most likely is a result of inflation, but also advancement in the food industry. The main difference between the two however, is grocery and supermarket sales project on a much more constant growth line whereas restaurants and other food services are projected to grow on a much steeper increased rate. This can be best explained by the fact that grocery stores fall under the more essential food item sales, whereas restaurant sales are more oriented towards consumer preference, making the graph more volatile.
+-   Retail sales for Supermarkets & Other Grocery Stores compared to retail sales for Food Services shared many similarities.
+
+-   Both areas as seen in the forecasting graphs experience growth over time which most likely is a result of inflation, but also advancement in the food industry.
+
+-   The main difference between the two is grocery and supermarket sales project on a much more constant growth line whereas restaurants and other food services are projected to grow on a much steeper increased rate.
+
+-   Potentially explained by the fact that grocery store products include essential food item sales, whereas restaurant sales are more oriented towards consumer preference, making the graph more volatile.
 
 ### Import Price Index
 
@@ -259,7 +309,13 @@ fig9 = m5.plot(forecast5)
 fig10 = m5.plot_components(forecast5)
 ```
 
-Both the import and export indexes share similar forecast paths of overall increase with slight recessions in international trade over the years. I chose to forecast these graphs because I felt they would be beneficial to understanding how the tariffs could potentially impact the flow of international trade. In 2018, President Donald Trump implemented very similar tariffs on steel and aluminum to the current actions we are seeing today. The forecast graph for both imports and exports shows how there was a recession around the year 2018, but after the tariff war passed, large rapid amounts of growth came with it. While the tariffs today are much larger in scale compared to 2018, if we use 2018 as a precedent, we can expect a drop in exports and imports followed by massive growth once the market adjusts to the tariff. Prophet's forecast still predicts growth will occur in both models although the data is variable.
+-   Both the import and export indexes share similar forecast paths of overall increase with slight recessions in international trade over the years.
+
+-   In 2018, President Donald Trump implemented very similar tariffs on steel and aluminum to the current actions we are seeing today. The forecast graph for both imports and exports shows how there was a recession around the year 2018, but after the tariff war passed, large rapid amounts of growth came with it.
+
+-   While the tariffs today are much larger in scale compared to 2018, if we use 2018 as a precedent, we can expect a drop in exports and imports followed by massive growth once the market adjusts to the tariff.
+
+-   Prophet's forecast still predicts growth will occur in both models although the data is variable.
 
 ## Correlation Grid
 
