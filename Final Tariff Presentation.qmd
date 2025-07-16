@@ -1,5 +1,5 @@
 ---
-title: "Tariff Regression Modeling & Forecasts"
+title: "Regression Modeling & Forecasts: Egg Prices & Their Potential Relation to Tariffs"
 author: "Eric Armstrong"
 format: 
     html:
@@ -291,4 +291,4 @@ plt.show()
 
 -   Restaurant spending has a higher ceiling than grocery stores in predicted models, but this is best explained by the consistency which essential grocery store items have compared to restaurant food
 
--   The import export forecasts provide us with useful models that can be used as a precedent for Trump's new wave of tariffs in 2025. The 2018 steel tariffs are invaluable to our understanding of how an event so similar will impact international trade in the long run
+-   The import export forecasts provide us with useful models that can be used as a precedent for Trump's new wave of tariffs in 2025. The 2018 steel tariffs are invaluable to our understanding of how an event so similar will impact international trade in the long run.
