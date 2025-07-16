@@ -1,0 +1,294 @@
+---
+title: "Tariff Regression Modeling & Forecasts"
+author: "Eric Armstrong"
+format: 
+    html:
+        mainfont: "Gill Sans"
+        toc: true
+        toc-title: "Index"
+        toc-depth: 2
+        smooth-scroll: true
+        toc-location: left
+editor: visual
+jupyter: python3
+---
+
+## Introduction
+
+Over the course of the past 2 weeks, my work primarily consisted of building an OLS Regression Model to track how egg prices impacted consumption, with a specific focus on consumer spending patterns. This project's main goal was to track how egg consumption (the predictor variable) acted in relation to the prices of eggs, while also finding which combination of external factors (the control variables) would provide the strongest statistical model. Below, I showcase a few of my most notable findings, and the models which I believe are most useful to VISA.
+
+## Notable Regression Models
+
+The following regression model provided me with the highest R\^2 value of .989, or 98.9% of the variance in the data could be explained by the model, making it very statistically powerful. For control variables, I used Personal Consumption Expenditures, VISA Discretionary & Non-Discretionary spending momentum, Current Economic Conditions, Probability of Recession in the Next Year, the Export and Import Price Indexes, Retail Sales for Supermarkets and Other Grocery Stores, Expenditures on Education, and finally Food & Beverages Purchased for Off-Premises Consumption. Below are the results.
+
+```{python}
+#| echo: false
+import os
+import pandas as pd
+import statsmodels.formula.api as smf
+import statsmodels.api as sm
+from statsmodels.stats.outliers_influence import variance_inflation_factor
+
+# Set working directory
+os.chdir(os.path.expanduser("/Users/ericarmstrong/Desktop"))
+
+# Load and parse dates
+df = pd.read_csv("table_final.csv")
+df['date'] = pd.to_datetime(df['date'])
+
+# Group and average duplicate entries
+df_clean = df.groupby(['date', 'seriesName'], as_index=False)['data'].mean()
+
+# Pivot long → wide
+df_wide = df_clean.pivot(index='date', columns='seriesName', values='data')
+
+# Keep only target variables
+target_vars = ['UFMEN', 'UFEC', 'NRSI511N', 'CCIN', 'NRSV2N', 'CCOND', 'RECPROB', 'VSMINN', 'VSMIDN', 
+               'Personal consumption expenditures (PCE)', 'Education', 'PXEA', 'PMEA']
+
+for var in target_vars:
+    if var not in df_wide.columns:
+        raise ValueError(f"Missing required column: {var}")
+
+# Keep only those + date
+df_model = df_wide[target_vars].copy()
+df_model = df_model.dropna()  # Drop rows with any NaNs
+
+# Convert to (if needed)
+df_model = df_model.apply(pd.to_numeric, errors='coerce')
+df_model = df_model.dropna()
+
+# Compute percentage change
+df_model = df_model.pct_change().dropna()
+
+# Join with date
+df_model['date'] = df_model.index
+df_model = df_model[['date'] + target_vars]
+
+df_wide = df_wide.rename(columns={'Personal consumption expenditures (PCE)': 'PCE'})
+df_wide = df_wide.rename(columns={'Food and beverages purchased for off-premises consumption': 'FNBOPC'})
+
+formula5 = 'UFMEN ~ UFEC + PCE + VSMINN + CCOND + RECPROB + PXEA + PMEA + NRSI511N + VSMIDN + Education + FNBOPC'
+model5 = smf.ols(formula5, data=df_wide).fit()
+print(model5.summary())
+```
+
+The following table tells us a lot about the relationship egg prices shares with many different factors in our model. First, the p-value of our predictor variable, consumer spending on eggs, is nearly 0. This signifies that there is extremely strong statistically significant evidence that consumer spending directly impacts the price of eggs, and since our coefficient for the following variable is negative, we can infer that as the price of eggs rises, consumption rates slightly drop.\
+\
+With respect to control variables, spending momentum and the export import index were the only variables which crossed the significance threshold of p \< 0.05. Education with a p-value of 0.061 was very close, however the p-value was a little too large to meet the statistically significant benchmark. From these results, we can infer that there is statistically significant evidence that spending momentum, alongside export and import index rates affect the price of eggs. In specific, non-discretionary spending rates are projected to fall as the prices of eggs increase, while discretionary spending rates are projected to increase as egg prices increase. Additionally the export index is projected to rise as egg prices increase while the import index is projected to fall as egg prices increase.
+
+### Slight Problem: Multicollinearity & Overfitting
+
+While the following model was able to push out such a high R\^2 value, there were some glaring issues with the model which could not be overlooked, with the main one being the super high condition number suggesting the presence of multicollinearity. To combat this issue, I conducted a VIF test on my parameters to see which ones were not absolutely necessary for the regression model. Below is the redesigned model alongside the VIF testing results to illustrate which parameters were causing issues.
+
+```{python}
+#| echo: false
+import os
+import pandas as pd
+import statsmodels.formula.api as smf
+import statsmodels.api as sm
+from statsmodels.stats.outliers_influence import variance_inflation_factor
+
+# Set working directory
+os.chdir(os.path.expanduser("/Users/ericarmstrong/Desktop"))
+
+# Load and parse dates
+df = pd.read_csv("table_final.csv")
+df['date'] = pd.to_datetime(df['date'])
+
+# Group and average duplicate entries
+df_clean = df.groupby(['date', 'seriesName'], as_index=False)['data'].mean()
+
+# Pivot long → wide
+df_wide = df_clean.pivot(index='date', columns='seriesName', values='data')
+
+# Rename columns for easier formula access
+df_wide = df_wide.rename(columns={
+    'Personal consumption expenditures (PCE)': 'PCE',
+    'Food and beverages purchased for off-premises consumption': 'FNBOPC'
+})
+
+# Keep only target variables
+target_vars = ['UFMEN', 'UFME', 'UFEC', 'NRSI511N', 'CCIN', 'NRSV2N', 'CCOND', 'RECPROB', 'VSMINN', 'VSMIDN', 
+               'PCE', 'Education', 'PXEA', 'PMEA', 'FNBOPC']
+
+for var in target_vars:
+    if var not in df_wide.columns:
+        raise ValueError(f"Missing required column: {var}")
+
+# Filter and clean model data
+df_model = df_wide[target_vars].copy()
+df_model = df_model.apply(pd.to_numeric, errors='coerce').dropna()
+df_model = df_model.pct_change().dropna()
+
+vif_vars = ['UFEC', 'PMEA', 'PXEA', 'NRSI511N', 'CCIN', 'CCOND', 'VSMINN', 'NRSV2N', 'VSMIDN']
+X = df_model[vif_vars].copy()
+X = sm.add_constant(X)
+
+# Compute VIF for each variable
+vif_data = pd.DataFrame()
+vif_data["Variable"] = X.columns
+vif_data["VIF"] = [variance_inflation_factor(X.values, i) for i in range(X.shape[1])]
+
+# Print results
+print("\n=== Variance Inflation Factors ===")
+print(vif_data.sort_values(by="VIF", ascending=False))
+
+formula4 = "UFME ~ UFEC + PMEA + PXEA + NRSI511N + CCIN + CCOND + VSMINN + NRSV2N + VSMIDN"
+model4 = smf.ols(formula4, data=df_model).fit()
+print(model4.summary())
+```
+
+### Brief Summary of Findings:
+
+First, we can see in the VIF table that none of the values fall above 3.6, signifying that all the following indices should not cause any issues of multicollinearity.
+
+The high R\^2 value of .947 signifies that the model is strong, as 94.7% of the variance in the data can be explained by it. Just like the last model as well, we see the super low p-value of nearly 0 for the egg consumption variable, reinforcing the statistical significance and negative correlation which egg consumption has on its prices.
+
+Unfortunately, unlike the previous model, none of the control coefficients p-values fall under the significance threshold of p \< 0.05, so there is not enough statistically significant evidence to reject the null hypothesis for any of these factors. However, it is interesting to compare the two models and see which factors are more likely subtly influencing the prices of eggs and consumer spending patterns.
+
+Finally, I included a residual plot below as a final test to confirm the model met all conditions safely. Since the residuals are randomly spread with no pattern, this confirms the model should be accurate without any issues of multicollinearity.
+
+```{python}
+#| echo: false
+import matplotlib.pyplot as plt
+residuals = model4.resid
+fitted = model4.fittedvalues
+
+plt.scatter(fitted, residuals)
+plt.axhline(0, color='red', linestyle='--')
+plt.xlabel('Fitted values')
+plt.ylabel('Residuals')
+plt.title('Residual Plot')
+plt.show()
+```
+
+## Relevant Forecasts & Inferences Based Off Them
+
+Below, I included some forecast graphs which I believed were relevant to the project. I chose indices within the regression model that may give us further insight about how consumer spending patterns and the prices of eggs may change in the future. Additionally, I also tried to synthesize the information with the recent tariff changes, as this was a strong point of interest for Publix.
+
+```{python}
+#| echo: false
+import os
+import pandas as pd
+from prophet import Prophet
+from matplotlib.backends.backend_pdf import PdfPages
+
+os.chdir(os.path.expanduser("/Users/ericarmstrong/Desktop"))
+
+df = pd.read_csv("table_final.csv")
+df.head()
+
+df.rename(columns={"date": "ds", "data": "y"}, inplace=True)
+# Convert date column to datetime format if needed
+df["ds"] = pd.to_datetime(df["ds"])
+subdfs = {name: group for name, group in df.groupby('seriesName')}
+```
+
+### Egg Prices
+
+```{python}
+#| echo: false
+m6 = Prophet()
+m6.fit(subdfs["UFMEN"])
+
+future6 = m6.make_future_dataframe(periods=365)
+forecast6 = m6.predict(future6)
+
+fig11 = m6.plot(forecast6)
+fig12 = m6.plot_components(forecast6)
+```
+
+Egg prices have been on the steady rise, which can be best explained by inflation. Around the end of 2024 and the beginning of 2025, we see the huge price jump in eggs which was caused by the bird flu. However, this event, as extreme as it was, only slightly shifts the projected forecast of egg prices in the future. From this graph, we can estimate that egg prices will still steadily increase as a result of inflation, but will not be permanently damaged by the shortage.
+
+### Retail Sales for Supermarkets & Other Grocery Stores
+
+```{python}
+#| echo: false
+m1 = Prophet()
+m1.fit(subdfs["NRSI511N"])
+
+future1 = m1.make_future_dataframe(periods=365)
+forecast1 = m1.predict(future1)
+
+fig1 = m1.plot(forecast1)
+fig2 = m1.plot_components(forecast1)
+```
+
+### Retail Sales for Food Services & Drinking Places
+
+```{python}
+#| echo: false
+m2 = Prophet()
+m2.fit(subdfs["NRSV2N"])
+
+future2 = m2.make_future_dataframe(periods=365)
+forecast2 = m2.predict(future2)
+
+fig3 = m2.plot(forecast2)
+fig4 = m2.plot_components(forecast2)
+```
+
+Retail sales for Supermarkets & Other Grocery Stores compared to retail sales for Food Services shared many similarities. Both areas as seen in the forecasting graphs experience growth over time which most likely is a result of inflation, but also advancement in the food industry. The main difference between the two however, is grocery and supermarket sales project on a much more constant growth line whereas restaurants and other food services are projected to grow on a much steeper increased rate. This can be best explained by the fact that grocery stores fall under the more essential food item sales, whereas restaurant sales are more oriented towards consumer preference, making the graph more volatile.
+
+### Import Price Index
+
+```{python}
+#| echo: false
+m4 = Prophet()
+m4.fit(subdfs["PMEA"])
+
+future4 = m4.make_future_dataframe(periods=365)
+forecast4 = m4.predict(future4)
+
+fig7 = m4.plot(forecast4)
+fig8 = m4.plot_components(forecast4)
+```
+
+### Export Price Index
+
+```{python}
+#| echo: false
+m5 = Prophet()
+m5.fit(subdfs["PXEA"])
+
+future5 = m5.make_future_dataframe(periods=365)
+forecast5 = m5.predict(future5)
+
+fig9 = m5.plot(forecast5)
+fig10 = m5.plot_components(forecast5)
+```
+
+Both the import and export indexes share similar forecast paths of overall increase with slight recessions in international trade over the years. I chose to forecast these graphs because I felt they would be beneficial to understanding how the tariffs could potentially impact the flow of international trade. In 2018, President Donald Trump implemented very similar tariffs on steel and aluminum to the current actions we are seeing today. The forecast graph for both imports and exports shows how there was a recession around the year 2018, but after the tariff war passed, large rapid amounts of growth came with it. While the tariffs today are much larger in scale compared to 2018, if we use 2018 as a precedent, we can expect a drop in exports and imports followed by massive growth once the market adjusts to the tariff. Prophet's forecast still predicts growth will occur in both models although the data is variable.
+
+## Correlation Grid
+
+Below I attached a large grid of all the correlations between variables in the regression models. Deeper shades of blue signify stronger positive correlation while deeper shades of red signify stronger negative correlation between variables. Light white shades signify almost no correlation and a black shade signifies that there is not enough data to come to a statistical conclusion.
+
+```{python}
+#| echo: false
+import matplotlib.pyplot as plt
+from PIL import Image
+import os
+
+# Path to your image on desktop
+img_path = os.path.expanduser("/Users/ericarmstrong/Desktop/tariff.png")
+
+# Open and show the image
+img = Image.open(img_path)
+plt.imshow(img)
+plt.axis('off')  # Hide axes
+plt.show()
+```
+
+## Key Takeaways & Final Conclusions
+
+-   Egg Prices and consumer spending had a high correlation and high statistical significance in every single model, these two variables directly affect each other
+
+-   Spending momentum and international trade (import export index) came up as the most statistically significant control variables, they very likely have an effect on the prices of eggs
+
+-   Egg prices will not be permanently damaged by the shortage despite it being so extreme; prophet predicts growth will eventually level out back to normal
+
+-   Restaurant spending has a higher ceiling than grocery stores in predicted models, but this is best explained by the consistency which essential grocery store items have compared to restaurant food
+
+-   The import export forecasts provide us with useful models that can be used as a precedent for Trump's new wave of tariffs in 2025. The 2018 steel tariffs are invaluable to our understanding of how an event so similar will impact international trade in the long run
