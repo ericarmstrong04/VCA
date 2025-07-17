@@ -11,6 +11,8 @@ format:
         toc-location: left
 editor: visual
 jupyter: python3
+output-file: "Final Tariff Presentation.html"
+output-dir: "/Users/ericarmstrong/Desktop"
 ---
 
 ## Introduction
@@ -19,7 +21,7 @@ Over the course of the past 2 weeks, my work primarily consisted of building an 
 
 ## Logistics
 
-All data is public and was pulled from the US Census Bureau, and the Bureau of Economic Analysis (BEA). The data is monthly and begins in the years as early as 1929.\
+All data is public and was pulled from the US Census Bureau, and the Bureau of Economic Analysis (BEA). The data is monthly and begins coverage from 01-01-2018 to 05-01-2025.\
 \
 Below is a key for what each coefficient in the data stands for:
 
@@ -99,6 +101,8 @@ df_model = df_model[['date'] + target_vars]
 
 df_wide = df_wide.rename(columns={'Personal consumption expenditures (PCE)': 'PCE'})
 df_wide = df_wide.rename(columns={'Food and beverages purchased for off-premises consumption': 'FNBOPC'})
+
+df_model = df_model[df_model['date'] >= pd.to_datetime('2018-01-01')]
 
 formula5 = 'UFMEN ~ UFEC + PCE + VSMINN + CCOND + RECPROB + PXEA + PMEA + NRSI511N + VSMIDN + Education + FNBOPC'
 model5 = smf.ols(formula5, data=df_wide).fit()
@@ -203,6 +207,108 @@ plt.title('Residual Plot')
 plt.show()
 ```
 
+## EDA & Correlation Models
+
+```{python}
+#| echo: false
+import pandas as pd
+import matplotlib.pyplot as plt
+
+df_plot = df_model.loc[(df_model.index >= "2023-01-01") & (df_model.index <= "2025-05-01")]
+
+# Plot the two variables (update names based on actual column headers)
+plt.figure(figsize=(10, 6))
+plt.plot(df_plot.index, df_plot["UFMEN"], label="CPI-U: Eggs (NSA)")
+plt.plot(df_plot.index, df_plot["UFEC"], label="Real Personal Egg Consumption Expenditures")
+plt.xlabel("Date")
+plt.ylabel("Growth Rate")
+plt.title("Egg Prices & Consumption Over Time (2023–2025)")
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+#| echo: false
+import matplotlib.pyplot as plt
+from PIL import Image
+import os
+
+# Path to your image on desktop
+img_path = os.path.expanduser("/Users/ericarmstrong/Desktop/UFMENvsUFEC.png")
+
+# Open and show the image
+img = Image.open(img_path)
+plt.imshow(img)
+plt.axis('off')  # Hide axes
+plt.show()
+```
+
+-   The following two graphs illustrate the negative correlation between the price of eggs, and consumer spending patterns.
+
+-   As the price of eggs increases, consumer spending drops and vice versa.
+
+```{python}
+#| echo: false
+import pandas as pd
+import matplotlib.pyplot as plt
+
+df_plot = df_model.loc[(df_model.index >= "2023-01-01") & (df_model.index <= "2025-05-01")]
+
+fig, ax1 = plt.subplots(figsize=(10, 6))
+
+# Primary y-axis (left)
+ax1.plot(df_plot.index, df_plot["UFMEN"], color='tab:blue', label="CPI-U: Eggs (NSA)")
+ax1.set_xlabel("Date")
+ax1.set_ylabel("Egg Prices", color='tab:blue')
+ax1.tick_params(axis='y', labelcolor='tab:blue')
+
+# Secondary y-axis (right)
+ax2 = ax1.twinx()
+ax2.plot(df_plot.index, df_plot["PXEA"], color='tab:red', label="Export Price Index: All Exports (NSA, 2000=100)")
+ax2.set_ylabel("Price Index", color='tab:red')
+ax2.tick_params(axis='y', labelcolor='tab:red')
+
+# Title and layout
+plt.title("Egg Prices & Exports Over Time (2023–2025)")
+fig.tight_layout()
+plt.grid(True)
+plt.show()
+```
+
+```{python}
+#| echo: false
+import pandas as pd
+import matplotlib.pyplot as plt
+
+df_plot = df_model.loc[(df_model.index >= "2023-01-01") & (df_model.index <= "2025-05-01")]
+
+fig, ax1 = plt.subplots(figsize=(10, 6))
+
+# Primary y-axis (left)
+ax1.plot(df_plot.index, df_plot["UFMEN"], color='tab:blue', label="CPI-U: Eggs (NSA)")
+ax1.set_xlabel("Date")
+ax1.set_ylabel("Egg Prices", color='tab:blue')
+ax1.tick_params(axis='y', labelcolor='tab:blue')
+
+# Secondary y-axis (right)
+ax2 = ax1.twinx()
+ax2.plot(df_plot.index, df_plot["PMEA"], color='tab:red', label="Import Price Index: All Imports (NSA, 2000=100)")
+ax2.set_ylabel("Price Index", color='tab:red')
+ax2.tick_params(axis='y', labelcolor='tab:red')
+
+# Title and layout
+plt.title("Egg Prices & Imports Over Time (2023–2025)")
+fig.tight_layout()
+plt.grid(True)
+plt.show()
+```
+
+-   Export index and egg prices closely track each other, shows the positive correlation.
+
+-   Import index is a little more variate, but negative correlation between the two can be visibly seen over some quarterly spans just as the regression model suggested.
+
 ## Relevant Forecasts & Inferences Based Off Them
 
 Below, I included some forecast graphs which I believed were relevant to the project. I chose indices within the regression model that may give us further insight about how consumer spending patterns and the prices of eggs may change in the future. Additionally, I also tried to synthesize the information with the recent tariff changes, as this was a strong point of interest for Publix.
@@ -229,8 +335,11 @@ subdfs = {name: group for name, group in df.groupby('seriesName')}
 
 ```{python}
 #| echo: false
+df_nrs = subdfs["UFMEN"]
+df_nrs = df_nrs[df_nrs["ds"] >= "2018-01-01"]
+
 m6 = Prophet()
-m6.fit(subdfs["UFMEN"])
+m6.fit(df_nrs)
 
 future6 = m6.make_future_dataframe(periods=365)
 forecast6 = m6.predict(future6)
@@ -239,18 +348,23 @@ fig11 = m6.plot(forecast6)
 fig12 = m6.plot_components(forecast6)
 ```
 
--   Egg prices have been on the steady rise prior to the 2025 shortage
+-   Egg prices have been on the steady, very subtle rise prior to the 2025 shortage
 
--   Around the end of 2024 and the beginning of 2025, we see the huge price jump in eggs which was caused by the bird flu. However, this event, as extreme as it was, only slightly shifts the projected forecast of egg prices in the future.
+-   Around the end of 2024 and the beginning of 2025, we see the huge price jump in eggs which was caused by the bird flu. 
 
--   From this graph, prophet estimates that egg prices will still steadily increase while returning to normal, signifying prices will not be permanently damaged by the shortage.
+-   From this graph, prophet estimates that egg prices may potentially jump super high, but more generally will still steadily increase
+
+-   Signifies prices will not be permanently damaged by the shortage.
 
 ### Retail Sales for Supermarkets & Other Grocery Stores
 
 ```{python}
 #| echo: false
+df_nrs2 = subdfs["NRSI511N"]
+df_nrs2 = df_nrs2[df_nrs2["ds"] >= "2018-01-01"]
+
 m1 = Prophet()
-m1.fit(subdfs["NRSI511N"])
+m1.fit(df_nrs2)
 
 future1 = m1.make_future_dataframe(periods=365)
 forecast1 = m1.predict(future1)
@@ -263,8 +377,11 @@ fig2 = m1.plot_components(forecast1)
 
 ```{python}
 #| echo: false
+df_nrs3 = subdfs["NRSV2N"]
+df_nrs3 = df_nrs3[df_nrs3["ds"] >= "2018-01-01"]
+
 m2 = Prophet()
-m2.fit(subdfs["NRSV2N"])
+m2.fit(df_nrs3)
 
 future2 = m2.make_future_dataframe(periods=365)
 forecast2 = m2.predict(future2)
@@ -273,20 +390,21 @@ fig3 = m2.plot(forecast2)
 fig4 = m2.plot_components(forecast2)
 ```
 
--   Retail sales for Supermarkets & Other Grocery Stores compared to retail sales for Food Services shared many similarities.
+-   Retail sales for Supermarkets & Other Grocery Stores compared to retail sales for Food Services shared similar constant rising path.
 
--   Both areas as seen in the forecasting graphs experience growth over time which most likely is a result of inflation, but also advancement in the food industry.
+-   Main difference between the two is grocery and supermarket sales project on a much more constant growth line whereas restaurants and other food services are affected more heavily by widescale events (COVID in 2020 resulting in drop).
 
--   The main difference between the two is grocery and supermarket sales project on a much more constant growth line whereas restaurants and other food services are projected to grow on a much steeper increased rate.
-
--   Potentially explained by the fact that grocery store products include essential food item sales, whereas restaurant sales are more oriented towards consumer preference, making the graph more volatile.
+-   Best explained by the fact that grocery store products are usually necessities, whereas restaurant sales are more oriented towards consumer preference (luxury goods), making the graph more volatile.
 
 ### Import Price Index
 
 ```{python}
 #| echo: false
+df_nrs4 = subdfs["PMEA"]
+df_nrs4 = df_nrs4[df_nrs4["ds"] >= "2018-01-01"]
+
 m4 = Prophet()
-m4.fit(subdfs["PMEA"])
+m4.fit(df_nrs4)
 
 future4 = m4.make_future_dataframe(periods=365)
 forecast4 = m4.predict(future4)
@@ -299,8 +417,11 @@ fig8 = m4.plot_components(forecast4)
 
 ```{python}
 #| echo: false
+df_nrs5 = subdfs["PXEA"]
+df_nrs5 = df_nrs5[df_nrs5["ds"] >= "2018-01-01"]
+
 m5 = Prophet()
-m5.fit(subdfs["PXEA"])
+m5.fit(df_nrs5)
 
 future5 = m5.make_future_dataframe(periods=365)
 forecast5 = m5.predict(future5)
@@ -309,13 +430,13 @@ fig9 = m5.plot(forecast5)
 fig10 = m5.plot_components(forecast5)
 ```
 
--   Both the import and export indexes share similar forecast paths of overall increase with slight recessions in international trade over the years.
+-   Both the import and export indexes share similar forecast paths, including the huge jump around 2020.
 
--   In 2018, President Donald Trump implemented very similar tariffs on steel and aluminum to the current actions we are seeing today. The forecast graph for both imports and exports shows how there was a recession around the year 2018, but after the tariff war passed, large rapid amounts of growth came with it.
+-   In 2018, President Donald Trump implemented very similar tariffs on steel and aluminum to the current actions we are seeing today. The forecast graph for both imports and exports shows how there was a recession around the year 2018, but after the tariff war ended and Trump left office, rapid amounts of growth came with it.
 
--   While the tariffs today are much larger in scale compared to 2018, if we use 2018 as a precedent, we can expect a drop in exports and imports followed by massive growth once the market adjusts to the tariff.
+-   While the tariffs today are much larger in scale compared to 2018, if we use 2018 as a precedent, we can expect a drop in exports and imports followed by massive growth once a change in office occurs.
 
--   Prophet's forecast still predicts growth will occur in both models although the data is variable.
+-   Prophet's forecast still predicts stable growth will occur in both models although the data is variable.
 
 ## Correlation Grid
 
@@ -345,6 +466,8 @@ plt.show()
 
 -   Egg prices will not be permanently damaged by the shortage despite it being so extreme; prophet predicts growth will eventually level out back to normal
 
--   Restaurant spending has a higher ceiling than grocery stores in predicted models, but this is best explained by the consistency which essential grocery store items have compared to restaurant food
+-   Restaurant spending is much more volatile than grocery stores in predicted models. This is best explained by the fact that grocery stores primarily sell necessities whereas restaurants are more oriented towards luxury consumer preference
 
--   The import export forecasts provide us with useful models that can be used as a precedent for Trump's new wave of tariffs in 2025. The 2018 steel tariffs are invaluable to our understanding of how an event so similar will impact international trade in the long run.
+-   COVID mark in 2020 illustrates that large-scale global events usually do not affect sales on everyday essential items
+
+-   The import export forecasts provide us with useful models that can be used as a precedent for Trump's new wave of tariffs in 2025. We see the steady decline in imports and exports as a result of Trump's time in office from 2018 to 2020, then the rapid growth after the change in office and COVID's conclusion
